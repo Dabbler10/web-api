@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using WebApi.MinimalApi.Domain;
 
 namespace WebApi.MinimalApi.Models;
