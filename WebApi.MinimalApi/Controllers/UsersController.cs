@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using WebApi.MinimalApi.Domain;
 using WebApi.MinimalApi.Models;
@@ -37,5 +37,24 @@ public class UsersController : Controller
             nameof(GetUserById),
             new { userId = userEntity.Id },
             userEntity);
+    }
+
+    [HttpPut("users/{userId}")]
+    public IActionResult UpdateUser([FromRoute] Guid userId, [FromBody] UserPut updateDto)
+    {
+        var userEntity = _userRepository.FindById(userId);
+
+        if (userEntity == null)
+            return NotFound();
+        if (updateDto.Login != null)
+            userEntity.Login = updateDto.Login;
+        if (updateDto.FirstName != null)
+            userEntity.FirstName = updateDto.FirstName;
+        if (updateDto.LastName != null)
+            userEntity.LastName = updateDto.LastName;
+
+        _userRepository.UpdateOrInsert(userEntity, out var success);
+
+        return Ok(success);
     }
 }
