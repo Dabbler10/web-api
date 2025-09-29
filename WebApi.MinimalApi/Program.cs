@@ -8,8 +8,8 @@ builder.Services.AddControllers()
         options.SuppressMapClientErrors = true;
     });
 
-var app = builder.Build();
 builder.Services.AddSingleton<IUserRepository, InMemoryUserRepository>();
+var app = builder.Build();
 
 app.MapControllers();
 
