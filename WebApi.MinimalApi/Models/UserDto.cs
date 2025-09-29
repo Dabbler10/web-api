@@ -1,3 +1,5 @@
+using WebApi.MinimalApi.Domain;
+
 namespace WebApi.MinimalApi.Models;
 
 public class UserDto
