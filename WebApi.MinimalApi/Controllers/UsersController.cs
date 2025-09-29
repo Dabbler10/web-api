@@ -21,12 +21,19 @@ public class UsersController : Controller
     
     [Produces("application/json", "application/xml")]
     [HttpGet("{userId}", Name = nameof(GetUserById))]
+    [HttpHead("{userId}")]
     public ActionResult<UserDto> GetUserById([FromRoute] Guid userId)
     {
         var user = _userRepository.FindById(userId);
         if (user == null)
             return NotFound();
         var userDto = _mapper.Map<UserDto>(user);
+        if (HttpMethods.IsHead(Request.Method))
+        {
+            Response.ContentType = $"{Request.Headers.Accept}; charset=utf-8";
+            return Ok();
+        }
+
         return Ok(userDto);
      
     }
@@ -41,43 +48,74 @@ public class UsersController : Controller
 
         if (!user.Login.All(char.IsLetterOrDigit))
         {
-            ModelState.AddModelError(nameof(user.Login), "Сообщение об ошибке");
+            ModelState.AddModelError(nameof(user.Login), "Login should contain only letters or digits");
             return UnprocessableEntity(ModelState);
         }
         
         var userEntity = _mapper.Map<UserEntity>(user);
-        _userRepository.Insert(userEntity);
+        var userEntityWithId = _userRepository.Insert(userEntity);
         return CreatedAtRoute(
             nameof(GetUserById),
-            new { userId = userEntity.Id },
-             userEntity.Id);
+            new { userId = userEntityWithId.Id },
+            userEntityWithId.Id);
     }
 
-    [HttpPut("users/{userId}")]
-    public IActionResult UpdateUser([FromRoute] Guid userId, [FromBody] UserPut updateDto)
+    [HttpPut("{userId}")]
+    public IActionResult UpdateUser([FromRoute] Guid userId, [FromBody] UserPut? updateDto)
     {
+        if (updateDto is null || userId == Guid.Empty)
+            return BadRequest();
+        if (!ModelState.IsValid)
+            return UnprocessableEntity(ModelState);
+        var isNew = false;
         var userEntity = _userRepository.FindById(userId);
-
         if (userEntity == null)
-            return NotFound();
-        if (updateDto.Login != null)
-            userEntity.Login = updateDto.Login;
-        if (updateDto.FirstName != null)
-            userEntity.FirstName = updateDto.FirstName;
-        if (updateDto.LastName != null)
-            userEntity.LastName = updateDto.LastName;
+        {
+            isNew = true;
+            userEntity = new UserEntity(userId);
+        }
+        
+        userEntity.Login = updateDto.Login;
+        userEntity.FirstName = updateDto.FirstName;
+        userEntity.LastName = updateDto.LastName;
 
         _userRepository.UpdateOrInsert(userEntity, out var success);
 
-        return Ok(success);
+        return isNew ? Created("user", userEntity) : NoContent();
     }
     
-    // [HttpPatch("{userId}")]
-    // public IActionResult PartiallyUpdateUser([FromRoute] Guid userId, [FromBody] JsonPatchDocument<UpdateDto> patchDoc)
-    // {
-    //     var user = _userRepository.FindById(userId);
-    //     
-    //     patchDoc.ApplyTo(updateDto, ModelState);
-    //     TryValidateModel(user);
-    // }
+    [HttpPatch("{userId}")]
+    public IActionResult PartiallyUpdateUser([FromRoute] Guid userId, [FromBody] JsonPatchDocument<UserPut>? patchDoc)
+    {
+        if (patchDoc is null)
+            return BadRequest();
+        
+        var user = _userRepository.FindById(userId);
+        if (user is null)
+            return NotFound();
+        
+        var updateDto = _mapper.Map<UserPut>(user);
+        patchDoc.ApplyTo(updateDto, ModelState);
+        if (!ModelState.IsValid)
+            return UnprocessableEntity(ModelState);
+        if (!TryValidateModel(updateDto))
+            return UnprocessableEntity(ModelState);
+        
+        user.Login = updateDto.Login;
+        user.FirstName = updateDto.FirstName;
+        user.LastName = updateDto.LastName;
+        _userRepository.Update(user);
+
+        return NoContent();
+    }
+
+    [HttpDelete("{userId}")]
+    public IActionResult DeleteUser([FromRoute] Guid userId)
+    {
+        var user = _userRepository.FindById(userId);
+        if (user == null)
+            return NotFound();
+        _userRepository.Delete(userId);
+        return NoContent();
+    }
 }
