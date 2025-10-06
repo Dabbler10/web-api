@@ -71,13 +71,8 @@ public class UsersController : Controller
             return BadRequest();
         if (!ModelState.IsValid)
             return UnprocessableEntity(ModelState);
-        var isNew = false;
-        var userEntity = _userRepository.FindById(userId);
-        if (userEntity == null)
-        {
-            isNew = true;
-            userEntity = new UserEntity(userId);
-        }
+        
+        var userEntity = new UserEntity(userId);
         
         userEntity.Login = updateDto.Login;
         userEntity.FirstName = updateDto.FirstName;
@@ -85,7 +80,7 @@ public class UsersController : Controller
 
         _userRepository.UpdateOrInsert(userEntity, out var success);
 
-        return isNew ? Created("user", userEntity) : NoContent();
+        return success ? Created("user", userEntity) : NoContent();
     }
     
     [HttpPatch("{userId}")]
